@@ -1,0 +1,97 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  ISSUER
+}
+
+enum DocumentStatus {
+  ACTIVE
+  REVOKED
+}
+
+enum AuditAction {
+  DOCUMENT_REGISTERED
+  DOCUMENT_REVOKED
+  USER_LOGIN
+}
+
+model Institution {
+  id             String           @id @default(uuid())
+  name           String
+  code           String           @unique
+  relayerAddress String
+  users          User[]
+  documents      DocumentRecord[]
+  auditLogs      AuditLog[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model User {
+  id            String           @id @default(uuid())
+  email         String           @unique
+  passwordHash  String
+  name          String
+  role          Role             @default(ISSUER)
+  institutionId String
+  institution   Institution      @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  documents     DocumentRecord[]
+  auditLogs     AuditLog[]
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([institutionId])
+}
+
+model DocumentRecord {
+  id               String         @id @default(uuid())
+  documentHash     String         @unique // SHA-256 in hex format (64 chars)
+  studentName      String
+  studentId        String
+  documentType     String
+  fileName         String         // Original filename (file itself is NEVER stored)
+  fileSize         Int            // File size in bytes
+  mimeType         String         // e.g., application/pdf
+  blockchainTxHash String         // Ethereum/Hardhat transaction hash
+  blockNumber      Int            // Block number at time of issuance
+  issuerAddress    String         // Wallet address that signed on blockchain
+  status           DocumentStatus @default(ACTIVE)
+  revokedAt        DateTime?
+  revocationReason String?
+  institutionId    String
+  institution      Institution    @relation(fields: [institutionId], references: [id], onDelete: Cascade)
+  issuedById       String
+  issuedBy         User           @relation(fields: [issuedById], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([documentHash])
+  @@index([studentId])
+  @@index([institutionId])
+  @@index([status])
+}
+
+model AuditLog {
+  id            String       @id @default(uuid())
+  action        AuditAction
+  documentHash  String?
+  userId        String?
+  user          User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  institutionId String?
+  institution   Institution? @relation(fields: [institutionId], references: [id], onDelete: SetNull)
+  details       Json?
+  ipAddress     String?
+  createdAt     DateTime     @default(now())
+
+  @@index([action])
+  @@index([documentHash])
+  @@index([createdAt])
+}

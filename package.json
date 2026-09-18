@@ -1,0 +1,28 @@
+{
+  "name": "autenticador-blockchain-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de Autenticacao de Documentos Academicos baseado em Blockchain com Zero-Storage",
+  "workspaces": [
+    "blockchain",
+    "api",
+    "web"
+  ],
+  "scripts": {
+    "dev": "npm run dev:all",
+    "dev:all": "concurrently -k -p \"[{name}]\" -n \"CHAIN,API,WEB\" -c \"yellow,blue,green\" \"npm run dev:blockchain\" \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:blockchain": "npm --workspace=blockchain run node",
+    "dev:api": "npm --workspace=api run dev",
+    "dev:web": "npm --workspace=web run dev",
+    "deploy:blockchain": "npm --workspace=blockchain run deploy",
+    "test": "npm --workspace=blockchain test && npm --workspace=api test",
+    "test:e2e": "node scripts/test-e2e.mjs",
+    "docker:db:up": "docker compose up -d postgres",
+    "docker:db:down": "docker compose down",
+    "db:migrate": "npm --workspace=api run prisma:migrate",
+    "db:seed": "npm --workspace=api run prisma:seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
