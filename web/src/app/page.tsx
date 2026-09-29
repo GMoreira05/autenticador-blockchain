@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   ShieldCheck,
   ShieldAlert,
@@ -17,10 +18,12 @@ import {
   Cpu,
   Layers,
 } from "lucide-react";
-import { calculateFileSha256, formatBytes, truncateHash } from "@/utils/crypto";
+import { calculateFileSha256, formatBytes, truncateHash, isValidSha256 } from "@/utils/crypto";
 import { verifyDocumentByHash, getPublicStats, VerificationResponse, StatsResponse } from "@/utils/api";
 
-export default function HomePage() {
+function HomeContent() {
+  const searchParams = useSearchParams();
+  const queryHash = searchParams.get("hash");
   const [activeTab, setActiveTab] = useState<"upload" | "hash">("upload");
   const [file, setFile] = useState<File | null>(null);
   const [inputHash, setInputHash] = useState("");
@@ -38,6 +41,24 @@ export default function HomePage() {
       .then(setStats)
       .catch((err) => console.warn("Could not load stats:", err));
   }, []);
+
+  // Handle URL query parameter ?hash=...
+  useEffect(() => {
+    if (queryHash) {
+      const clean = queryHash.trim().replace(/^0x/, "");
+      if (isValidSha256(clean)) {
+        setActiveTab("hash");
+        setInputHash("0x" + clean);
+        setLoading(true);
+        setError(null);
+        setResult(null);
+        verifyDocumentByHash(clean)
+          .then(setResult)
+          .catch((err) => setError(err.message || "Erro ao consultar hash na blockchain."))
+          .finally(() => setLoading(false));
+      }
+    }
+  }, [queryHash]);
 
   // Handle file selection
   const handleFileChange = async (selectedFile: File) => {
@@ -73,8 +94,8 @@ export default function HomePage() {
 
     try {
       const clean = inputHash.trim().replace(/^0x/, "");
-      if (clean.length !== 64) {
-        throw new Error("O hash SHA-256 deve conter exatamente 64 caracteres hexadecimais.");
+      if (!isValidSha256(clean)) {
+        throw new Error("O hash SHA-256 deve conter exatamente 64 caracteres hexadecimais válidos.");
       }
       const verification = await verifyDocumentByHash(clean);
       setResult(verification);
@@ -524,5 +545,19 @@ export default function HomePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="py-20 text-center text-sm text-slate-400">
+          Carregando portal de verificação...
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }

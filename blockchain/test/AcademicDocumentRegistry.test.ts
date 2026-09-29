@@ -97,6 +97,24 @@ describe("AcademicDocumentRegistry Contract", () => {
           .connect(issuer)
           .registerDocument(sampleHash, "", "RA-1234", "Certificado", "Universidade")
       ).to.be.revertedWith("Student name is required");
+
+      await expect(
+        registry
+          .connect(issuer)
+          .registerDocument(sampleHash, "Carlos Eduardo", "", "Certificado", "Universidade")
+      ).to.be.revertedWith("Student ID is required");
+
+      await expect(
+        registry
+          .connect(issuer)
+          .registerDocument(sampleHash, "Carlos Eduardo", "RA-1234", "", "Universidade")
+      ).to.be.revertedWith("Document type is required");
+
+      await expect(
+        registry
+          .connect(issuer)
+          .registerDocument(sampleHash, "Carlos Eduardo", "RA-1234", "Certificado", "")
+      ).to.be.revertedWith("Institution name is required");
     });
 
     it("should prevent duplicate registration of same document hash", async () => {

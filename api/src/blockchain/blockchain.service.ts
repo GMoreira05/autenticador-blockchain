@@ -51,8 +51,12 @@ export class BlockchainService {
       // Look for generated contract-deployment.json
       const candidates = [
         path.join(process.cwd(), "src/config/contract-deployment.json"),
+        path.join(process.cwd(), "api/src/config/contract-deployment.json"),
         path.join(process.cwd(), "../blockchain/deployed-contract.json"),
-        path.join(process.cwd(), "contract-deployment.json")
+        path.join(process.cwd(), "blockchain/deployed-contract.json"),
+        path.join(process.cwd(), "contract-deployment.json"),
+        path.join(process.cwd(), "../web/src/config/contract-deployment.json"),
+        path.join(process.cwd(), "web/src/config/contract-deployment.json"),
       ];
 
       for (const candidate of candidates) {
@@ -145,8 +149,8 @@ export class BlockchainService {
 
   public formatHashToBytes32(hexHash: string): string {
     const clean = hexHash.replace(/^0x/, "").toLowerCase();
-    if (clean.length !== 64) {
-      throw new Error(`Invalid SHA-256 hash length (${clean.length}). Expected 64 hex characters.`);
+    if (!/^[a-f0-9]{64}$/.test(clean)) {
+      throw new Error(`Invalid SHA-256 hash format (${clean}). Expected 64 hexadecimal characters.`);
     }
     return "0x" + clean;
   }
@@ -159,7 +163,7 @@ export class BlockchainService {
 
     while (retries > 0) {
       try {
-        const nonce = await this.provider.getTransactionCount(this.wallet.address, "latest");
+        const nonce = await this.provider.getTransactionCount(this.wallet.address, "pending");
         const tx = await fn(nonce);
         const receipt = await tx.wait();
         if (!receipt || receipt.status !== 1) {
@@ -177,10 +181,14 @@ export class BlockchainService {
           await new Promise((resolve) => setTimeout(resolve, 250));
           continue;
         }
-        throw error;
+        const friendlyMsg = error?.reason || error?.shortMessage || error?.message;
+        const err = new Error(friendlyMsg);
+        (err as any).original = error;
+        throw err;
       }
     }
-    throw lastError || new Error("Transaction execution failed after retries");
+    const finalMsg = lastError?.reason || lastError?.shortMessage || lastError?.message || "Transaction execution failed after retries";
+    throw new Error(finalMsg);
   }
 
   public async registerDocument(

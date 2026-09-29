@@ -5,7 +5,7 @@ import {
   revokeDocumentSchema,
   listDocumentsQuerySchema,
 } from "./documents.schemas.js";
-import { hashStreamSha256 } from "../../utils/hash.js";
+import { hashStreamSha256, isValidSha256 } from "../../utils/hash.js";
 
 export const documentRoutes: FastifyPluginAsync = async (server) => {
   const documentsService = new DocumentsService(server.prisma);
@@ -50,23 +50,27 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
       if (!computedHash) {
         return reply.status(400).send({ error: "Nenhum arquivo enviado para autenticação" });
       }
-      if (!studentName || !studentId || !documentType) {
+
+      const parseResult = registerHashSchema.safeParse({
+        documentHash: computedHash,
+        studentName,
+        studentId,
+        documentType,
+        fileName: fileName || "documento.pdf",
+        fileSize: byteLength,
+        mimeType,
+      });
+
+      if (!parseResult.success) {
         return reply.status(400).send({
-          error: "Campos obrigatórios ausentes: studentName, studentId, documentType",
+          error: "Dados inválidos para emissão do documento",
+          details: parseResult.error.flatten(),
         });
       }
 
       try {
         const result = await documentsService.registerDocument(
-          {
-            documentHash: computedHash,
-            studentName,
-            studentId,
-            documentType,
-            fileName: fileName || "documento.pdf",
-            fileSize: byteLength,
-            mimeType,
-          },
+          parseResult.data,
           request.user
         );
 
@@ -109,8 +113,8 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
    */
   server.get("/verify/:hash", async (request, reply) => {
     const { hash } = request.params as { hash: string };
-    if (!hash || hash.length < 64) {
-      return reply.status(400).send({ error: "Hash SHA-256 inválido" });
+    if (!hash || !isValidSha256(hash)) {
+      return reply.status(400).send({ error: "Hash SHA-256 inválido. Forneça 64 caracteres hexadecimais." });
     }
 
     try {
@@ -132,6 +136,10 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
     { preHandler: [server.authenticate] },
     async (request, reply) => {
       const { hash } = request.params as { hash: string };
+      if (!hash || !isValidSha256(hash)) {
+        return reply.status(400).send({ error: "Hash SHA-256 inválido. Forneça 64 caracteres hexadecimais." });
+      }
+
       const parseResult = revokeDocumentSchema.safeParse(request.body);
       if (!parseResult.success) {
         return reply.status(400).send({
@@ -148,7 +156,8 @@ export const documentRoutes: FastifyPluginAsync = async (server) => {
         );
         return reply.send(result);
       } catch (err: any) {
-        return reply.status(400).send({ error: err.message });
+        const statusCode = err.message.includes("Acesso negado") ? 403 : 400;
+        return reply.status(statusCode).send({ error: err.message });
       }
     }
   );

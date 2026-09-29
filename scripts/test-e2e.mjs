@@ -122,6 +122,14 @@ async function run() {
   logSuccess(`Instituição emissora: ${verifyData.onChain.institutionName}`);
   logSuccess(`Contrato inteligente: ${verifyData.contractAddress}`);
 
+  // 5a. Format Validation Test
+  logStep("5a", "Testando validação de formato de hash SHA-256...");
+  const invalidHashRes = await fetch(`${API_BASE}/api/documents/verify/invalid-hash-string`);
+  if (invalidHashRes.status !== 400) {
+    throw new Error(`Esperava status 400 para hash inválido mas recebeu ${invalidHashRes.status}`);
+  }
+  logSuccess("Hash com formato inválido rejeitado com 400 Bad Request!");
+
   // 6. Anti-Tampering Test: Altering single character
   logStep(6, "Testando Resistência contra Adulteração (Efeito Avalanche)...");
   const tamperedContent = documentContent + " [FRAUDE: NOTA ALTERADA]";
@@ -136,6 +144,18 @@ async function run() {
     throw new Error(`Esperava status NOT_FOUND para arquivo adulterado mas recebeu ${tamperedVerifyData.status}`);
   }
   logSuccess(`Documento adulterado rejeitado corretamente: 🔴 ${tamperedVerifyData.status}`);
+
+  // 7a. Unauthorized Revocation Test
+  logStep("7a", "Testando proteção contra revogação não autenticada...");
+  const unauthRevokeRes = await fetch(`${API_BASE}/api/documents/${originalHash}/revoke`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ reason: "Tentativa de revogação fraudulenta sem token" }),
+  });
+  if (unauthRevokeRes.status !== 401) {
+    throw new Error(`Esperava status 401 mas recebeu ${unauthRevokeRes.status}`);
+  }
+  logSuccess("Tentativa não autenticada bloqueada com sucesso (401 Unauthorized)!");
 
   // 7. Revocation Test
   logStep(7, "Executando Revogação On-Chain do documento pela Secretaria...");

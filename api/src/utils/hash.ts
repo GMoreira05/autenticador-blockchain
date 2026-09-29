@@ -10,13 +10,23 @@ export async function hashStreamSha256(stream: Readable): Promise<{ hash: string
   return new Promise((resolve, reject) => {
     const hasher = createHash("sha256");
     let byteLength = 0;
+    let limitExceeded = false;
 
     stream.on("data", (chunk: Buffer) => {
       byteLength += chunk.length;
       hasher.update(chunk);
     });
 
+    stream.on("limit", () => {
+      limitExceeded = true;
+      reject(new Error("Arquivo excede o tamanho máximo permitido (50 MB)"));
+    });
+
     stream.on("end", () => {
+      if (limitExceeded || (stream as any).truncated) {
+        reject(new Error("Arquivo excede o tamanho máximo permitido (50 MB)"));
+        return;
+      }
       const hash = hasher.digest("hex");
       resolve({ hash, byteLength });
     });

@@ -100,7 +100,7 @@ export class DocumentsService {
   async revokeDocument(
     documentHashHex: string,
     input: RevokeDocumentInput,
-    user: { id: string; institutionId: string }
+    user: { id: string; institutionId: string; role?: string }
   ) {
     const cleanHash = documentHashHex.replace(/^0x/, "").toLowerCase();
 
@@ -110,6 +110,11 @@ export class DocumentsService {
 
     if (!record) {
       throw new Error("Documento não encontrado no sistema");
+    }
+
+    // Broken Access Control prevention: only the issuing institution (or ADMIN) can revoke
+    if (user.role !== "ADMIN" && record.institutionId !== user.institutionId) {
+      throw new Error("Acesso negado. Você só pode revogar documentos da sua própria instituição.");
     }
 
     if (record.status === DocumentStatus.REVOKED) {

@@ -41,4 +41,28 @@ describe("Zero-Storage Hash Utility", () => {
     expect(isValidSha256(invalidLength)).toBe(false);
     expect(isValidSha256(invalidChar)).toBe(false);
   });
+
+  it("should reject when stream exceeds size limit (limit event)", async () => {
+    const stream = new Readable({
+      read() {
+        this.push(Buffer.from("some chunk data"));
+        this.emit("limit");
+        this.push(null);
+      },
+    });
+
+    await expect(hashStreamSha256(stream)).rejects.toThrow("Arquivo excede o tamanho máximo permitido");
+  });
+
+  it("should reject when stream was truncated by multipart parser", async () => {
+    const stream = new Readable({
+      read() {
+        this.push(Buffer.from("partial chunk data"));
+        (this as any).truncated = true;
+        this.push(null);
+      },
+    });
+
+    await expect(hashStreamSha256(stream)).rejects.toThrow("Arquivo excede o tamanho máximo permitido");
+  });
 });

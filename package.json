@@ -20,7 +20,8 @@
     "docker:db:up": "docker compose up -d postgres",
     "docker:db:down": "docker compose down",
     "db:migrate": "npm --workspace=api run prisma:migrate",
-    "db:seed": "npm --workspace=api run prisma:seed"
+    "db:seed": "npm --workspace=api run prisma:seed",
+    "kill:ports": "powershell -Command \"Get-NetTCPConnection -LocalPort 8545,3000,3001 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }\""
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

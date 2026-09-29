@@ -64,6 +64,10 @@ export default function IssueDocumentPage() {
       setError("Por favor, preencha o nome do aluno e o número de matrícula.");
       return;
     }
+    if (documentType === "Outro" && !customDocType.trim()) {
+      setError("Por favor, especifique o tipo do documento personalizado.");
+      return;
+    }
 
     const token = localStorage.getItem("auth_token");
     if (!token) {

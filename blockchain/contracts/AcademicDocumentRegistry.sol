@@ -106,6 +106,7 @@ contract AcademicDocumentRegistry {
         require(bytes(_studentName).length > 0, "Student name is required");
         require(bytes(_studentId).length > 0, "Student ID is required");
         require(bytes(_documentType).length > 0, "Document type is required");
+        require(bytes(_institutionName).length > 0, "Institution name is required");
 
         documents[_documentHash] = DocumentRecord({
             documentHash: _documentHash,
